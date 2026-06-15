@@ -73,4 +73,7 @@ int          getShadowRange();
 int          getShadowRenderPower();
 int64_t      getShadowColor();
 
+std::string  getBarOpenCmd();
+std::string  getBarCloseCmd();
+
 }

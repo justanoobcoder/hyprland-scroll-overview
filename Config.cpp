@@ -5,6 +5,7 @@
 #include <hyprland/src/config/values/types/ColorValue.hpp>
 #include <hyprland/src/config/values/types/FloatValue.hpp>
 #include <hyprland/src/config/values/types/IntValue.hpp>
+#include <hyprland/src/config/values/types/StringValue.hpp>
 #include <hyprland/src/managers/KeybindManager.hpp>
 
 extern "C" {
@@ -166,6 +167,10 @@ void registerLegacy() {
                                   makeShared<CIntValue>("plugin:scrolloverview:shadow:render_power", "workspace card shadow render power", -1));
     HyprlandAPI::addConfigValueV2(SCROLLOVERVIEW_HANDLE,
                                   makeShared<CColorValue>("plugin:scrolloverview:shadow:color", "workspace card shadow color", -1));
+    HyprlandAPI::addConfigValueV2(SCROLLOVERVIEW_HANDLE,
+                                  makeShared<CStringValue>("plugin:scrolloverview:bar_open_cmd", "command to execute when bar is opened", ""));
+    HyprlandAPI::addConfigValueV2(SCROLLOVERVIEW_HANDLE,
+                                  makeShared<CStringValue>("plugin:scrolloverview:bar_close_cmd", "command to execute when bar is closed", ""));
 }
 
 int getGestureDistance() {
@@ -215,6 +220,14 @@ int getShadowRenderPower() {
 
 int64_t getShadowColor() {
     return getValue<int64_t>("plugin:scrolloverview:shadow:color");
+}
+
+std::string getBarOpenCmd() {
+    return getValue<std::string>("plugin:scrolloverview:bar_open_cmd");
+}
+
+std::string getBarCloseCmd() {
+    return getValue<std::string>("plugin:scrolloverview:bar_close_cmd");
 }
 
 }

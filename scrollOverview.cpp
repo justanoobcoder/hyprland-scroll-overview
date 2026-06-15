@@ -7,6 +7,7 @@
 #include <functional>
 #include <limits>
 #include <optional>
+#include <cstdlib>
 #include <linux/input-event-codes.h>
 #define private public
 #define protected public
@@ -779,6 +780,12 @@ static void moveOverviewTargetNextToWindow(const SP<Layout::ITarget>& target, co
 }
 
 CScrollOverview::~CScrollOverview() {
+    std::string barOpenCmd = ScrollOverview::Config::getBarOpenCmd();
+    if (!barOpenCmd.empty()) {
+        std::string cmd = barOpenCmd + " &";
+        system(cmd.c_str());
+    }
+
     if (const auto OPENGL = g_pHyprRenderer ? g_pHyprRenderer->glBackend().lock() : WP<Render::GL::CHyprOpenGLImpl>{})
         OPENGL->makeEGLCurrent();
     if (realtimePreviewTimer) {
@@ -805,6 +812,12 @@ CScrollOverview::~CScrollOverview() {
 CScrollOverview::CScrollOverview(PHLWORKSPACE startedOn_, bool swipe_) : startedOn(startedOn_), swipe(swipe_) {
     const auto          PMONITOR = Desktop::focusState()->monitor();
     pMonitor                     = PMONITOR;
+
+    std::string barCloseCmd = ScrollOverview::Config::getBarCloseCmd();
+    if (!barCloseCmd.empty()) {
+        std::string cmd = barCloseCmd + " &";
+        system(cmd.c_str());
+    }
 
     applyWorkspaceAnimationOverrides();
     forceWorkspaceAlphaVisible();

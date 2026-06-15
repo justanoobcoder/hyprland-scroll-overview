@@ -35,6 +35,8 @@ plugin {
         workspace_gap = 100
         wallpaper = 0 # 0: global only, 1: per-workspace only, 2: both
         blur = false # blur only the main overview wallpaper
+        bar_open_cmd = # command to open bar
+        bar_close_cmd = # command to close bar
 
         shadow {
             enabled = false
@@ -58,6 +60,8 @@ hl.config({
             workspace_gap = 100,
             wallpaper = 0, -- 0: global only, 1: per-workspace only, 2: both
             blur = false, -- blur only the main overview wallpaper
+            bar_open_cmd = "", -- command to open bar
+            bar_close_cmd = "", -- command to close bar
 
             shadow = {
                 enabled = false,
@@ -82,6 +86,8 @@ In Lua, `shadow.color` must be an integer color value. The Hyprlang-only
 | workspace_gap    | number | gap between visible workspaces in the overview, in pixels              | `0`     |
 | wallpaper        | int    | wallpaper mode: `0` global only, `1` per-workspace only, `2` both      | `0`     |
 | blur             | bool   | blur the main overview wallpaper without blurring workspace wallpapers | `false` |
+| bar_open_cmd     | string | command to execute when bar is opened (overview closed)                | `""`    |
+| bar_close_cmd    | string | command to execute when bar is closed (overview opened)                | `""`    |
 
 #### Subcategory `shadow`
 
