@@ -780,12 +780,6 @@ static void moveOverviewTargetNextToWindow(const SP<Layout::ITarget>& target, co
 }
 
 CScrollOverview::~CScrollOverview() {
-    std::string barOpenCmd = ScrollOverview::Config::getBarOpenCmd();
-    if (!barOpenCmd.empty()) {
-        std::string cmd = barOpenCmd + " &";
-        system(cmd.c_str());
-    }
-
     if (const auto OPENGL = g_pHyprRenderer ? g_pHyprRenderer->glBackend().lock() : WP<Render::GL::CHyprOpenGLImpl>{})
         OPENGL->makeEGLCurrent();
     if (realtimePreviewTimer) {
@@ -3508,6 +3502,13 @@ static Vector2D hyprlerp(const Vector2D& from, const Vector2D& to, const float p
 }
 
 void CScrollOverview::setClosing(bool closing_) {
+    if (closing_ && !closing) {
+        std::string barOpenCmd = ScrollOverview::Config::getBarOpenCmd();
+        if (!barOpenCmd.empty()) {
+            std::string cmd = barOpenCmd + " &";
+            system(cmd.c_str());
+        }
+    }
     closing = closing_;
     if (closing) {
         inputFramePending = false;
