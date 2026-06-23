@@ -33,6 +33,7 @@ plugin {
         gesture_distance = 300 # how far is the "max" for the gesture
         scale = 0.5 # preferred overview scale
         workspace_gap = 100
+        layout = vertical # vertical or horizontal
         wallpaper = 0 # 0: global only, 1: per-workspace only, 2: both
         blur = false # blur only the main overview wallpaper
         bar_open_cmd = # command to open bar
@@ -58,6 +59,7 @@ hl.config({
             gesture_distance = 300, -- how far is the "max" for the gesture
             scale = 0.5, -- preferred overview scale
             workspace_gap = 100,
+            layout = "vertical", -- vertical or horizontal
             wallpaper = 0, -- 0: global only, 1: per-workspace only, 2: both
             blur = false, -- blur only the main overview wallpaper
             bar_open_cmd = "", -- command to open bar
@@ -84,10 +86,19 @@ In Lua, `shadow.color` must be an integer color value. The Hyprlang-only
 | gesture_distance | number | how far is the max for the gesture                                     | `200`   |
 | scale            | float  | overview scale, [0.1 - 0.9]                                            | `0.5`   |
 | workspace_gap    | number | gap between visible workspaces in the overview, in pixels              | `0`     |
+| layout           | string | overview layout: `vertical` or `horizontal`                           | `vertical` |
 | wallpaper        | int    | wallpaper mode: `0` global only, `1` per-workspace only, `2` both      | `0`     |
 | blur             | bool   | blur the main overview wallpaper without blurring workspace wallpapers | `false` |
 | bar_open_cmd     | string | command to execute when bar is opened (overview closed)                | `""`    |
 | bar_close_cmd    | string | command to execute when bar is closed (overview opened)                | `""`    |
+
+#### Subcategory `input`
+
+| property | type | description | default |
+| --- | --- | --- | --- |
+| left_handed | int | swap left and right mouse button actions in overview: `0` disabled, `1` enabled | `input:left_handed` |
+| scrolling_mode | int | mouse wheel behavior: `0` layout-aware default, `1` inverted, `2` vertical scroll changes workspace and horizontal scroll changes columns, `3` vertical scroll changes columns and horizontal scroll changes workspace | `0` |
+| drag_mode | int | mouse drag behavior: `0` main button drags windows and middle button pans scrolling workspaces, `1` main button pans scrolling workspaces and middle button drags windows | `0` |
 
 #### Subcategory `shadow`
 
@@ -133,6 +144,19 @@ end)
 `hl.plugin.scrolloverview.overview("toggle")` returns a dispatcher function
 accepted by `hl.dispatch()` and binds. When called from inside a Lua keybind
 callback, it dispatches immediately.
+
+### Other Lua Examples
+
+Set layout per monitor before opening the overview:
+
+```lua
+hl.bind(mainMod .. " + Tab", function()
+    local monitor = hl.get_active_monitor()
+    local layout = monitor and monitor.name == "DP-1" and "vertical" or "horizontal"
+    hl.config({ plugin = { scrolloverview = { layout = layout } } })
+    hl.plugin.scrolloverview.overview("toggle")
+end)
+```
 
 Here are a list of options you can use:  
 | option | description |

@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "Config.hpp"
 #include "IOverview.hpp"
 
 class CMonitor;
@@ -60,8 +61,7 @@ class CScrollOverview : public IOverview {
     void   renderWorkspaceBackground(PHLMONITOR monitor, size_t workspaceIdx, size_t activeIdx, float workspacePitch, float renderScale, int wallpaperMode, const Time::steady_tp& now);
     void   renderWorkspaceLive(PHLMONITOR monitor, size_t workspaceIdx, size_t activeIdx, float workspacePitch, float renderScale, int wallpaperMode, const Time::steady_tp& now);
     bool   hasVisiblePrecomputedBlurWindow(PHLMONITOR monitor, size_t activeIdx, float workspacePitch, float renderScale) const;
-    void   renderWindowLive(PHLMONITOR monitor, PHLWINDOW window, const CBox& windowBox, float renderScale, const Time::steady_tp& now, const CBox* workspaceBox = nullptr,
-                             bool usePrecomputedBlur = false);
+    void   renderWindowLive(PHLMONITOR monitor, PHLWINDOW window, const CBox& windowBox, float renderScale, const Time::steady_tp& now, const CBox* workspaceBox = nullptr);
     void   renderDraggedWindow(PHLMONITOR monitor, size_t activeIdx, float workspacePitch, float renderScale, const Time::steady_tp& now);
     void   renderPinnedFloatingWindows(PHLMONITOR monitor, float overviewScale, const Time::steady_tp& now);
     void   moveViewportWorkspace(bool up);
@@ -69,20 +69,32 @@ class CScrollOverview : public IOverview {
     void   rememberSelection(PHLWINDOW window);
     void   syncSelectionToViewport();
     void   syncFocusedSelection();
-    float      workspaceOverviewYOffset(size_t workspaceIdx, size_t activeIdx, float workspacePitch) const;
+    size_t dragWorkspaceIndex(PHLWINDOW window) const;
+    void   updateWorkspaceOverflow();
+    CBox   workspaceOverviewVisibleBox(size_t workspaceIdx, const CBox& workspaceBox, float renderScale, PHLMONITOR monitor) const;
+    float      workspaceOverviewOffset(size_t workspaceIdx, size_t activeIdx, float workspacePitch) const;
+    float      workspaceOverviewLogicalOffset(size_t workspaceIdx, size_t activeIdx, float workspacePitch) const;
     float      workspaceOverviewAlpha(size_t workspaceIdx) const;
+    PHLWINDOW windowAtOverviewPoint(const Vector2D& point, size_t* workspaceIdx = nullptr) const;
     PHLWINDOW windowAtOverviewCursor(size_t* workspaceIdx = nullptr);
     PHLWINDOW windowAtOverviewCursorOnWorkspace(size_t workspaceIdx, const PHLWINDOW& ignoredWindow = nullptr, CBox* windowBox = nullptr) const;
+    PHLWORKSPACE workspaceAtOverviewPoint(const Vector2D& point, size_t* workspaceIdx = nullptr) const;
     PHLWORKSPACE workspaceAtOverviewCursor(size_t* workspaceIdx = nullptr) const;
     Vector2D  overviewPointToGlobal(size_t workspaceIdx, const Vector2D& pointLocal) const;
     CBox      draggedWindowBox(size_t workspaceIdx) const;
-    void      beginWindowDrag();
+    void      clearDragPending();
+    void      beginWindowDrag(PHLWINDOW window);
     void      updateWindowDrag();
     void      endWindowDrag();
     CBox      resizedWindowBox() const;
     void      beginWindowResize();
     void      updateWindowResize();
     void      endWindowResize();
+    void      updateScrollingPan();
+    void      beginScrollingPan(PHLWORKSPACE workspace);
+    void      endScrollingPan();
+    void      focusMostVisibleScrollingWindow(const PHLWORKSPACE& workspace);
+    bool      moveScrollingColumnSelection(bool next);
     void   forceSurfaceVisibility(SP<CWLSurfaceResource> surface);
     void   forceWindowSurfaceVisibility(PHLWINDOW window);
     void   forceWindowVisible(PHLWINDOW window);
@@ -122,36 +134,44 @@ class CScrollOverview : public IOverview {
     struct SWorkspaceImage {
         PHLWORKSPACE              pWorkspace;
         std::vector<PHLWINDOWREF> windows;
+        float                     overflowLeft   = 0.F;
+        float                     overflowRight  = 0.F;
+        float                     overflowTop    = 0.F;
+        float                     overflowBottom = 0.F;
     };
 
     struct SWorkspaceInsertTransition {
         bool                             active              = false;
         WORKSPACEID                      transitionWorkspaceID = WORKSPACE_INVALID;
         bool                             transitionFadeIn   = true;
-        std::unordered_map<WORKSPACEID, long> oldRelativeSlots;
-        std::unordered_map<WORKSPACEID, long> newRelativeSlots;
-        long                             transitionOldRelativeSlot = 0;
+        std::unordered_map<WORKSPACEID, float> oldRelativeOffsets;
+        std::unordered_map<WORKSPACEID, float> newRelativeOffsets;
+        float                            transitionOldRelativeOffset = 0.F;
     };
 
     Vector2D                         lastMousePosLocal = Vector2D{}; // monitor-local pixel space
 
     PHLWINDOWREF                     closeOnWindow;
-    PHLWINDOWREF                     dragPendingWindow;
     PHLWINDOWREF                     dragActiveWindow;
     PHLWORKSPACEREF                  dragOriginalWorkspace;
+    PHLWORKSPACEREF                  scrollingPanWorkspace;
+    PHLWINDOWREF                     scrollingPanInitialWindow;
     PHLWINDOWREF                     resizePendingWindow;
     PHLWINDOWREF                     resizeActiveWindow;
 
     Vector2D                         dragStartMouseLocal   = Vector2D{};
+    Vector2D                         dragGrabOffsetLocal   = Vector2D{};
     Vector2D                         dragOriginalFloatSize = Vector2D{};
     Vector2D                         resizeStartMouseLocal = Vector2D{};
     Vector2D                         resizeLastMouseLocal  = Vector2D{};
+    Vector2D                         scrollingPanLastMouseLocal = Vector2D{};
     CBox                             dragOriginalBox        = CBox{};
     CBox                             resizeOriginalBox      = CBox{};
     size_t                           resizeWorkspaceIdx     = 0;
     Layout::eRectCorner              resizeCorner           = Layout::CORNER_NONE;
-    bool                             dragPointerDown       = false;
+    bool                             dragPendingPrimary    = false;
     bool                             resizePointerDown     = false;
+    bool                             scrollingPanPointerDown = false;
     bool                             dragStartedTiled      = false;
     bool                             emittingFullscreenVisibilityState = false;
     bool                             inputConfigOverridden = false;
@@ -170,6 +190,7 @@ class CScrollOverview : public IOverview {
     std::unordered_map<WORKSPACEID, PHLWINDOWREF> rememberedSelection;
     SWorkspaceInsertTransition       workspaceInsertTransition;
     PHLWORKSPACEREF                  pendingRemovedWorkspace;
+    ScrollOverview::Config::ELayout  layout = ScrollOverview::Config::ELayout::VERTICAL;
 
     struct SForcedSurfaceVisibility {
         WP<CWLSurfaceResource> surface;

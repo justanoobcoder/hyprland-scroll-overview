@@ -15,6 +15,16 @@ namespace ScrollOverview::Config {
 
 using TOverviewDispatcher = SDispatchResult (*)(std::string);
 
+enum class ELayout {
+    VERTICAL,
+    HORIZONTAL,
+};
+
+enum class EScrollAction {
+    WORKSPACE,
+    COLUMN,
+};
+
 void registerLua(TOverviewDispatcher dispatcher);
 void registerLegacy();
 
@@ -62,11 +72,16 @@ void setValue(const std::string& name, const T& value) {
         *getValuePtr<TValue>(name) = value;
 }
 
-int          getGestureDistance();
-float        getScale();
-int          getWorkspaceGap();
-int          getWallpaperMode();
-bool         getBlur();
+int           getGestureDistance();
+float         getScale();
+int           getWorkspaceGap();
+ELayout       getLayout();
+bool          getLeftHanded();
+int           getDragMode();
+EScrollAction getVerticalScrollAction(ELayout layout);
+EScrollAction getHorizontalScrollAction(ELayout layout);
+int           getWallpaperMode();
+bool          getBlur();
 ::Config::CCssGapData getCssGapData(const std::string& name);
 int          getShadowEnabled();
 int          getShadowRange();
