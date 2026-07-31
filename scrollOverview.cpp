@@ -17,12 +17,13 @@
 #include <hyprland/src/Compositor.hpp>
 #include <hyprland/src/config/ConfigValue.hpp>
 #include <hyprland/src/config/ConfigManager.hpp>
+#include <hyprland/src/config/lua/ConfigManager.hpp>
 #include <hyprland/src/config/shared/actions/ConfigActions.hpp>
 #include <hyprland/src/config/shared/animation/AnimationTree.hpp>
 #include <hyprland/src/config/shared/complex/ComplexDataTypes.hpp>
 #include <hyprland/src/event/EventBus.hpp>
 #include <hyprland/src/animation/AnimationManager.hpp>
-#include <hyprland/src/managers/EventManager.hpp>
+#include <hyprland/src/ipc/s2/S2.hpp>
 #include <hyprland/src/managers/input/InputManager.hpp>
 #include <hyprland/src/managers/KeybindManager.hpp>
 #include <hyprland/src/managers/SeatManager.hpp>
@@ -59,6 +60,7 @@
 #include <hyprland/src/render/decorations/CHyprGroupBarDecoration.hpp>
 #include <hyprland/src/render/decorations/DecorationPositioner.hpp>
 #include <hyprutils/utils/ScopeGuard.hpp>
+#include <hyprutils/string/Numeric.hpp>
 #undef protected
 #undef private
 #include "Config.hpp"
@@ -3914,16 +3916,14 @@ void CScrollOverview::emitFullscreenVisibilityState(PHLWINDOW window, bool hideF
     window = getOverviewWindowToShow(window);
 
     if (!validMapped(window) || !window->m_workspace || window->m_monitor != pMonitor) {
-        if (g_pEventManager)
-            g_pEventManager->postEvent(SHyprIPCEvent{.event = "fullscreen", .data = "0"});
+        IPC::Socket2::sock()->postEvent(IPC::Socket2::SEvent{.event = "fullscreen", .data = "0"});
         return;
     }
 
     if (!hideFullscreen || !Fullscreen::controller()->isFullscreen(window)) {
         Event::bus()->m_events.window.fullscreen.emit(window);
 
-        if (g_pEventManager)
-            g_pEventManager->postEvent(SHyprIPCEvent{.event = "fullscreen", .data = Fullscreen::controller()->isFullscreen(window) ? "1" : "0"});
+        IPC::Socket2::sock()->postEvent(IPC::Socket2::SEvent{.event = "fullscreen", .data = Fullscreen::controller()->isFullscreen(window) ? "1" : "0"});
 
         return;
     }
@@ -3934,8 +3934,7 @@ void CScrollOverview::emitFullscreenVisibilityState(PHLWINDOW window, bool hideF
 
     Event::bus()->m_events.window.fullscreen.emit(window);
 
-    if (g_pEventManager)
-        g_pEventManager->postEvent(SHyprIPCEvent{.event = "fullscreen", .data = "0"});
+    IPC::Socket2::sock()->postEvent(IPC::Socket2::SEvent{.event = "fullscreen", .data = "0"});
 
     Fullscreen::controller()->setFullscreenMode(window, SAVEDMODES.internal, SAVEDMODES.client);
 }
@@ -5172,14 +5171,8 @@ void CScrollOverview::activateSubmapIfConfigured() {
 
     previousSubmapName = g_pKeybindManager->getCurrentSubmap().name;
 
-    const auto DISPATCHER = g_pKeybindManager->m_dispatchers.find("submap");
-    if (DISPATCHER == g_pKeybindManager->m_dispatchers.end()) {
-        usesSubmapKeybinds = false;
-        return;
-    }
-
-    const auto RESULT = DISPATCHER->second(OVERVIEW_SUBMAP);
-    if (!RESULT.success) {
+    const auto RESULT = Config::Actions::setSubmap(OVERVIEW_SUBMAP);
+    if (!RESULT) {
         usesSubmapKeybinds = false;
         return;
     }
@@ -5193,9 +5186,7 @@ void CScrollOverview::restoreSubmapIfActive() {
 
     const auto CURRENT = g_pKeybindManager->getCurrentSubmap().name;
     if (CURRENT == OVERVIEW_SUBMAP) {
-        const auto DISPATCHER = g_pKeybindManager->m_dispatchers.find("submap");
-        if (DISPATCHER != g_pKeybindManager->m_dispatchers.end())
-            DISPATCHER->second(previousSubmapName.empty() ? "reset" : previousSubmapName);
+        (void)Config::Actions::setSubmap(previousSubmapName.empty() ? "reset" : previousSubmapName);
     }
 
     submapActive = false;
@@ -5216,9 +5207,9 @@ bool CScrollOverview::dispatchSubmapMouseClick(uint32_t button) {
     if (KEYBIND == g_pKeybindManager->m_keybinds.end())
         return false;
 
-    const auto DISPATCHERNAME = (*KEYBIND)->mouse ? "mouse" : (*KEYBIND)->handler;
-    const auto DISPATCHER     = g_pKeybindManager->m_dispatchers.find(DISPATCHERNAME);
-    if (DISPATCHER == g_pKeybindManager->m_dispatchers.end())
+    const auto INDEX = Hyprutils::String::strToNumber<int>((*KEYBIND)->arg);
+    const auto MGR   = Config::Lua::mgr();
+    if (!INDEX || !MGR)
         return false;
 
     const auto PREVIOUSKEYBIND = g_pKeybindManager->m_currentKeybind;
@@ -5229,8 +5220,8 @@ bool CScrollOverview::dispatchSubmapMouseClick(uint32_t button) {
     Config::Actions::state()->m_passPressed = 0;
     auto restorePassPressed = Hyprutils::Utils::CScopeGuard([PREVIOUSPASSPRESSED] { Config::Actions::state()->m_passPressed = PREVIOUSPASSPRESSED; });
 
-    DISPATCHER->second((*KEYBIND)->mouse ? "0" + (*KEYBIND)->arg : (*KEYBIND)->arg);
-    return true;
+    const auto RESULT = MGR->callLuaFnBind(*INDEX);
+    return RESULT.success;
 }
 
 void CScrollOverview::resetSwipe() {
